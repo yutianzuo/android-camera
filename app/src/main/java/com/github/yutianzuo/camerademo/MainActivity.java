@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Intent intent;
         switch (view.getId()) {
             case R.id.txt1:
-                intent = new Intent(this, CustomCamera.class);
+                intent = new Intent(this, CustomCamera2.class);
                 startActivity(intent);
                 break;
             case R.id.txt2:
