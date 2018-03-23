@@ -1,7 +1,6 @@
 package com.github.yutianzuo.camerademo;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
@@ -19,12 +18,8 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.MediaActionSound;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.HandlerThread;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -79,19 +74,25 @@ public class CustomCamera2 extends AppCompatActivity {
 
         @Override
         public void onDisconnected(CameraDevice cameraDevice) {
-            mCameraDevice.close();
-            mCameraDevice = null;
+            if (mCameraDevice != null) {
+                mCameraDevice.close();
+                mCameraDevice = null;
+            }
         }
 
         @Override
         public void onError(CameraDevice cameraDevice, int i) {
-            mCameraDevice.close();
-            mCameraDevice = null;
+            if (mCameraDevice != null) {
+                mCameraDevice.close();
+                mCameraDevice = null;
+            }
         }
     };
 
+    //性能如果不好，用后台线程关联的handler去传入各种session调用所需要的handler参数，目前都传入的null
 //    private HandlerThread mBackgroundThread;
 //    private Handler mBackgroundHandler;
+
     private static SparseIntArray ORIENTATIONS = new SparseIntArray();
 
     static {
@@ -107,6 +108,10 @@ public class CustomCamera2 extends AppCompatActivity {
         @Override
         public void onCaptureStarted(CameraCaptureSession session, CaptureRequest request, long timestamp, long frameNumber) {
             super.onCaptureStarted(session, request, timestamp, frameNumber);
+
+            //如果需要对每一帧数据处理可以在这里触发
+//            mSession = session;
+//            takePicture();
         }
     };
 
@@ -131,11 +136,13 @@ public class CustomCamera2 extends AppCompatActivity {
         mTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
-                mWidth = width;
-                mHeight = height;
-                getCameraId();
-                openCamera();
-                mFirstAvailable = true;
+                if (!mFirstAvailable) {
+                    mWidth = width;
+                    mHeight = height;
+                    getCameraId(false);
+                    openCamera();
+                    mFirstAvailable = true;
+                }
             }
 
             @Override
@@ -158,21 +165,21 @@ public class CustomCamera2 extends AppCompatActivity {
     }
 
     private void initImageReader(int width, int height, int format) {
-        mImageReader = ImageReader.newInstance(width, height, format, 10);
+        mImageReader = ImageReader.newInstance(width, height, format, 4);
         if (format == ImageFormat.JPEG) {
             mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
-                   //should run in workthread TODO
-                   Log.e("ytz", "");
-                   Image image = reader.acquireNextImage();
+                    //should run in workthread 正式工程需要在工作线程中处理
+                    Log.e("ytz", "");
+                    Image image = reader.acquireNextImage();
 
                     ByteBuffer buffer = image.getPlanes()[0].getBuffer();
                     byte[] bytes = new byte[buffer.remaining()];
                     buffer.get(bytes);
                     FileOutputStream output = null;
                     try {
-                        output = new FileOutputStream(new File("/sdcard/1.jpg"));
+                        output = new FileOutputStream(new File("/sdcard/" + System.currentTimeMillis() + ".jpeg"));
                         output.write(bytes);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -188,6 +195,8 @@ public class CustomCamera2 extends AppCompatActivity {
                     }
                 }
             }, null);
+        } else if (format == ImageFormat.NV21) { //处理原生YUV420SP数据，如需要可以在这里加
+
         }
     }
 
@@ -259,17 +268,24 @@ public class CustomCamera2 extends AppCompatActivity {
 
     }
 
-    private void getCameraId() {
+    private void getCameraId(boolean bFaceOrBack) {
         try {
             for (String cameraId : mCameraManager.getCameraIdList()) {
                 CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(cameraId);
-                if (characteristics.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT) {
-                    continue;
+                int facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+                if (bFaceOrBack) {
+                    if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                        mCameraId = cameraId;
+                        return;
+                    }
+                } else {
+                    if (facing == CameraCharacteristics.LENS_FACING_BACK) {
+                        mCameraId = cameraId;
+                        return;
+                    }
                 }
-                mCameraId = cameraId;
-                return;
             }
-        } catch (CameraAccessException e) {
+        } catch (Throwable e) {
             e.printStackTrace();
         }
     }
@@ -278,31 +294,32 @@ public class CustomCamera2 extends AppCompatActivity {
         List<Size> collectorSizes = new ArrayList<>();
         for (Size option : sizes) {
             if (width > height) {
-                if (option.getWidth() > width && option.getHeight() > height) {
+                if (option.getWidth() >= width && option.getHeight() >= height) {
                     collectorSizes.add(option);
                 }
             } else {
-                if (option.getHeight() > width && option.getWidth() > height) {
+                if (option.getHeight() >= width && option.getWidth() >= height) {
                     collectorSizes.add(option);
                 }
             }
         }
-        if (collectorSizes.size() > 0) {
-            return Collections.min(collectorSizes, new Comparator<Size>() {
-                @Override
-                public int compare(Size s1, Size s2) {
-                    return Long.signum(s1.getWidth() * s1.getHeight() - s2.getWidth() * s2.getHeight());
-                }
-            });
-        }
-        return sizes[0];
+        return sizes[2];
+//        if (collectorSizes.size() > 0) {
+//            return Collections.min(collectorSizes, new Comparator<Size>() {
+//                @Override
+//                public int compare(Size s1, Size s2) {
+//                    return Long.signum(s1.getWidth() * s1.getHeight() - s2.getWidth() * s2.getHeight());
+//                }
+//            });
+//        }
+//        return sizes[0];
     }
 
     private void openCamera() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            Log.e("CameraNew", "Lacking privileges to access camera service, please request permission first.");
+            Log.e("ytz", "Lacking privileges to access camera service, please request permission first.");
             ActivityCompat.requestPermissions(this, new String[]{
                     Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE
             }, REQUEST_CAMERA_PERMISSION);
@@ -337,8 +354,7 @@ public class CustomCamera2 extends AppCompatActivity {
 
     private void createCameraPreview() {
         try {
-            SurfaceTexture texture = mTextureView.getSurfaceTexture();
-            assert texture != null;
+
             CameraCharacteristics characteristics = mCameraManager.getCameraCharacteristics(mCameraId);
             StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             int deviceOrientation = getWindowManager().getDefaultDisplay().getOrientation();
@@ -351,16 +367,26 @@ public class CustomCamera2 extends AppCompatActivity {
                 rotatedHeight = mWidth;
             }
             mPreviewSize = getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class), rotatedWidth, rotatedHeight);
+            Size[] xx = map.getOutputSizes(ImageFormat.JPEG);
+            mPreviewSize = xx[0];
+
+
             RelativeLayout.LayoutParams rlPreview = new RelativeLayout.LayoutParams(
                     Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
                     Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()));
+//            RelativeLayout.LayoutParams rlPreview = new RelativeLayout.LayoutParams(1080, 1920);
             mTextureView.setLayoutParams(rlPreview);
+
+            SurfaceTexture texture = mTextureView.getSurfaceTexture();
+            assert texture != null;
+            texture.setDefaultBufferSize(Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
+                    Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()));
 
             initImageReader(Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()), Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()), ImageFormat.JPEG);
 
-            Log.e("CameraActivity", "OptimalSize width: " + mPreviewSize.getWidth() + " height: " + mPreviewSize.getHeight());
+            Log.e("ytz", "OptimalSize width: " + mPreviewSize.getWidth() + " height: " + mPreviewSize.getHeight());
             Surface surface = new Surface(texture);
-            mBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            mBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT);
             mBuilder.addTarget(surface);
             mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()), new CameraCaptureSession.StateCallback() {
                 @Override
@@ -382,7 +408,7 @@ public class CustomCamera2 extends AppCompatActivity {
                     Toast.makeText(CustomCamera2.this, "Camera configuration change", Toast.LENGTH_SHORT).show();
                 }
             }, null);
-        } catch (CameraAccessException e) {
+        } catch (Throwable e) {
             e.printStackTrace();
         }
     }
@@ -411,7 +437,7 @@ public class CustomCamera2 extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (mFirstAvailable) {
-            getCameraId();
+            getCameraId(false);
             openCamera();
         }
     }

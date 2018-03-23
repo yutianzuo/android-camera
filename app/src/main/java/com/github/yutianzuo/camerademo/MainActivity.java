@@ -13,6 +13,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        TextView tv0 = findViewById(R.id.txt0);
+        tv0.setOnClickListener(this);
+
         TextView tv1 = findViewById(R.id.txt1);
         tv1.setOnClickListener(this);
 
@@ -24,6 +28,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View view) {
         Intent intent;
         switch (view.getId()) {
+            case R.id.txt0:
+                Toast.makeText(this, "coming soon", Toast.LENGTH_LONG).show();
+                break;
             case R.id.txt1:
                 intent = new Intent(this, CustomCamera2.class);
                 startActivity(intent);
