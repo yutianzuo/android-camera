@@ -18,6 +18,7 @@ import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaActionSound;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -62,6 +63,13 @@ public class CustomCamera2 extends AppCompatActivity {
     private Size mPreviewSize;
     private int mWidth;
     private int mHeight;
+    private MediaActionSound mMediaActionSound;
+
+    private void initShotClickSound() {
+        mMediaActionSound = new MediaActionSound();
+        mMediaActionSound.load(MediaActionSound.SHUTTER_CLICK);
+    }
+
     private CameraDevice.StateCallback mCameraDeviceStateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(CameraDevice cameraDevice) {
@@ -145,6 +153,8 @@ public class CustomCamera2 extends AppCompatActivity {
 
             }
         });
+
+        initShotClickSound();
     }
 
     private void initImageReader(int width, int height, int format) {
@@ -241,7 +251,12 @@ public class CustomCamera2 extends AppCompatActivity {
             }, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
+            return;
         }
+
+
+        mMediaActionSound.play(MediaActionSound.SHUTTER_CLICK);
+
     }
 
     private void getCameraId() {
