@@ -31,7 +31,6 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageButton;
-import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
@@ -44,6 +43,14 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * yutianzuo
+ * Camera2 APIDemo, preview and take a picture(jpeg)
+ * some key points commented in Chinese
+ *
+ * 本文件展示了camera2系列api的使用，功能包括preview和自定义拍照，可以旋转摄像头和操作闪关灯等最基本操作
+ * 注释标注了一些可以扩展的地方，如果想实现更复杂的功能，可以参考注释
+ */
 public class CustomCamera2 extends AppCompatActivity {
     private final int REQUEST_CAMERA_PERMISSION = 0;
 
@@ -116,12 +123,15 @@ public class CustomCamera2 extends AppCompatActivity {
     };
 
     boolean mFirstAvailable = false;
+    boolean mFlashOn = false;
+    boolean mFacingCamera = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_camera2_preview);
         mCameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         mTextureView = (TextureView) findViewById(R.id.camera_texture_view);
@@ -133,13 +143,42 @@ public class CustomCamera2 extends AppCompatActivity {
             }
         });
 
+        ImageButton btnFlash = (ImageButton) findViewById(R.id.flash_btn);
+        btnFlash.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mFlashOn) {
+                    mBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_TORCH);
+                } else {
+                    mBuilder.set(CaptureRequest.FLASH_MODE, CameraMetadata.FLASH_MODE_OFF);
+                }
+                try {
+                    mSession.setRepeatingRequest(mBuilder.build(), mSessionCaptureCallback, null);//mBackgroundHandler);
+                } catch (Throwable e) {
+
+                }
+                mFlashOn = !mFlashOn;
+            }
+        });
+
+        ImageButton btnSwitch = (ImageButton) findViewById(R.id.switch_btn);
+        btnSwitch.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                closeCamera();
+                mFacingCamera = !mFacingCamera;
+                getCameraId(mFacingCamera);
+                openCamera();
+            }
+        });
+
         mTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
                 if (!mFirstAvailable) {
                     mWidth = width;
                     mHeight = height;
-                    getCameraId(false);
+                    getCameraId(mFacingCamera);
                     openCamera();
                     mFirstAvailable = true;
                 }
@@ -165,7 +204,7 @@ public class CustomCamera2 extends AppCompatActivity {
     }
 
     private void initImageReader(int width, int height, int format) {
-        mImageReader = ImageReader.newInstance(width, height, format, 4);
+        mImageReader = ImageReader.newInstance(width, height, format, 2);
         if (format == ImageFormat.JPEG) {
             mImageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
@@ -212,6 +251,8 @@ public class CustomCamera2 extends AppCompatActivity {
             captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             // 自动曝光
             captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+            // 闪光灯
+            captureRequestBuilder.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH);
             // 获取手机方向
             //int rotation = getWindowManager().getDefaultDisplay().getRotation();
             // 根据设备方向计算设置照片的方向
@@ -290,29 +331,30 @@ public class CustomCamera2 extends AppCompatActivity {
         }
     }
 
-    private Size getPreferredPreviewSize(Size[] sizes, int width, int height) {
+    private Size getPreferredPreviewSize(Size[] sizes, int width, int height, float ratio) {
         List<Size> collectorSizes = new ArrayList<>();
         for (Size option : sizes) {
             if (width > height) {
-                if (option.getWidth() >= width && option.getHeight() >= height) {
+                if (option.getWidth() >= width && option.getHeight() >= height
+                        && Float.compare(((float)height / (float)width), ratio) == 0) {
                     collectorSizes.add(option);
                 }
             } else {
-                if (option.getHeight() >= width && option.getWidth() >= height) {
+                if (option.getHeight() >= width && option.getWidth() >= height
+                        && Float.compare(((float)width / (float)height), ratio) == 0) {
                     collectorSizes.add(option);
                 }
             }
         }
-        return sizes[2];
-//        if (collectorSizes.size() > 0) {
-//            return Collections.min(collectorSizes, new Comparator<Size>() {
-//                @Override
-//                public int compare(Size s1, Size s2) {
-//                    return Long.signum(s1.getWidth() * s1.getHeight() - s2.getWidth() * s2.getHeight());
-//                }
-//            });
-//        }
-//        return sizes[0];
+        if (collectorSizes.size() > 0) {
+            return Collections.min(collectorSizes, new Comparator<Size>() {
+                @Override
+                public int compare(Size s1, Size s2) {
+                    return Long.signum(s1.getWidth() * s1.getHeight() - s2.getWidth() * s2.getHeight());
+                }
+            });
+        }
+        return sizes[0];
     }
 
     private void openCamera() {
@@ -366,29 +408,34 @@ public class CustomCamera2 extends AppCompatActivity {
                 rotatedWidth = mHeight;
                 rotatedHeight = mWidth;
             }
-            mPreviewSize = getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class), rotatedWidth, rotatedHeight);
-            Size[] xx = map.getOutputSizes(ImageFormat.JPEG);
-            mPreviewSize = xx[0];
+            //选取一个合适的相机分辨率（根据显示控件的尺寸）
+            mPreviewSize = getPreferredPreviewSize(map.getOutputSizes(SurfaceTexture.class),
+                    rotatedWidth, rotatedHeight, /*16:9*/0.5625f);
 
-
-            RelativeLayout.LayoutParams rlPreview = new RelativeLayout.LayoutParams(
-                    Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
-                    Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()));
-//            RelativeLayout.LayoutParams rlPreview = new RelativeLayout.LayoutParams(1080, 1920);
-            mTextureView.setLayoutParams(rlPreview);
+//            Size[] jpgSize = map.getOutputSizes(ImageFormat.JPEG);
 
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
             assert texture != null;
-            texture.setDefaultBufferSize(Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
-                    Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()));
+            //这里texture的width和height设置应该和相机尺寸相同，即是跟控件方向相差90度的。
+            texture.setDefaultBufferSize(Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
+                    Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()));
+//            int previewWidth = mTextureView.getWidth();
+//            int previewHeight = mTextureView.getHeight();
+//            texture.setDefaultBufferSize(1920, 1080);
 
-            initImageReader(Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()), Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()), ImageFormat.JPEG);
+            //preview 和 输出到imageReader的尺寸是可以不同的;
+            //这里的尺寸设置跟texture一样，跟相机一样
+            initImageReader(Math.max(mPreviewSize.getHeight(), mPreviewSize.getWidth()),
+                    Math.min(mPreviewSize.getHeight(), mPreviewSize.getWidth()), ImageFormat.JPEG);
 
             Log.e("ytz", "OptimalSize width: " + mPreviewSize.getWidth() + " height: " + mPreviewSize.getHeight());
             Surface surface = new Surface(texture);
-            mBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT);
+            mBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             mBuilder.addTarget(surface);
-            mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()), new CameraCaptureSession.StateCallback() {
+//            mBuilder.addTarget(mImageReader.getSurface()); //这里也可以作为触发摄像头每一帧数据回调开关
+            mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()),
+                    //Arrays.asList(surface),
+                    new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession cameraCaptureSession) {
                     if (null == mCameraDevice) {
@@ -433,18 +480,7 @@ public class CustomCamera2 extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (mFirstAvailable) {
-            getCameraId(false);
-            openCamera();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
+    private void closeCamera() {
         if (mSession != null) {
             mSession.close();
             mSession = null;
@@ -453,7 +489,22 @@ public class CustomCamera2 extends AppCompatActivity {
             mCameraDevice.close();
             mCameraDevice = null;
         }
+    }
 
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mFirstAvailable) {
+            getCameraId(mFacingCamera);
+            openCamera();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        closeCamera();
 //        stopBackgroundThread();
     }
 
