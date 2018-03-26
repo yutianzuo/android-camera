@@ -10,6 +10,10 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp" />
+
         <TextView
             android:id="@+id/txt0"
             android:layout_width="match_parent"
@@ -19,6 +23,10 @@
             android:text="Custom Camera API1"
             android:textSize="32sp" /> 
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp" />
+
         <TextView
             android:id="@+id/txt1"
             android:layout_width="match_parent"
@@ -26,15 +34,6 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:text="Custom Camera API2"
-            android:textSize="32sp" />
-
-        <TextView
-            android:id="@+id/txt2"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:text="OpenGLES Preview"
             android:textSize="32sp" />
 
     </LinearLayout>

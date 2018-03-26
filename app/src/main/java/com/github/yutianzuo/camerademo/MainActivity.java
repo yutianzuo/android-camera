@@ -20,8 +20,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         TextView tv1 = findViewById(R.id.txt1);
         tv1.setOnClickListener(this);
 
-        TextView tv2 = findViewById(R.id.txt2);
-        tv2.setOnClickListener(this);
     }
 
     @Override
@@ -35,9 +33,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.txt1:
                 intent = new Intent(this, CustomCamera2.class);
                 startActivity(intent);
-                break;
-            case R.id.txt2:
-                Toast.makeText(this, "coming soon", Toast.LENGTH_LONG).show();
                 break;
         }
     }
