@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"/>
 
-    <ScrollView
+    <com.github.yutianzuo.camerademo.help.NoTouchScrollView
         android:id="@+id/scrollview"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -17,7 +17,7 @@
         android:fillViewport="true"
         android:scrollbars="none">
 
-        <HorizontalScrollView
+        <com.github.yutianzuo.camerademo.help.NoTouchHorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:fillViewport="true"
@@ -34,8 +34,8 @@
                     android:layout_alignParentTop="true" />
 
             </RelativeLayout>
-        </HorizontalScrollView>
-    </ScrollView>
+        </com.github.yutianzuo.camerademo.help.NoTouchHorizontalScrollView>
+    </com.github.yutianzuo.camerademo.help.NoTouchScrollView>
 
     <ImageButton
         android:id="@+id/capture_btn"
