@@ -477,7 +477,6 @@ public class CustomCamera1 extends AppCompatActivity implements TextureView.Surf
         }
     }
 
-
     public static void savePic(Bitmap b, String strFileName) {
         if (b == null) {
             return;
