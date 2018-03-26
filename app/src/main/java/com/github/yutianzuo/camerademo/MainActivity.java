@@ -29,7 +29,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Intent intent;
         switch (view.getId()) {
             case R.id.txt0:
-                Toast.makeText(this, "coming soon", Toast.LENGTH_LONG).show();
+                intent = new Intent(this, CustomCamera1.class);
+                startActivity(intent);
                 break;
             case R.id.txt1:
                 intent = new Intent(this, CustomCamera2.class);

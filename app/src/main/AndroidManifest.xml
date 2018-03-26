@@ -26,6 +26,10 @@
         <activity
             android:name=".CustomCamera2"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".CustomCamera1"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>

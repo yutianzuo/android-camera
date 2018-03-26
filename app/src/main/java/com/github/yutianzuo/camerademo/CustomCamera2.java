@@ -32,7 +32,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageButton;
 import android.widget.Toast;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -128,10 +127,9 @@ public class CustomCamera2 extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_camera2_preview);
         mCameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         mTextureView = (TextureView) findViewById(R.id.camera_texture_view);
@@ -191,6 +189,7 @@ public class CustomCamera2 extends AppCompatActivity {
 
             @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+                mFirstAvailable = false;
                 return false;
             }
 
